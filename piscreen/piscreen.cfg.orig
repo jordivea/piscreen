@@ -1,0 +1,16 @@
+[database]
+host = 
+port =
+db = 
+user = 
+passwd =
+
+[config]
+remote_image_pattern = 
+local_image_path = tmp/image.jpg
+image_history_max = 20
+preferred_orientation = LANDSCAPE
+
+[log]
+logfile = log/piscreen.log
+level = DEBUG

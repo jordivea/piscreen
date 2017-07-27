@@ -3,12 +3,11 @@ import time
 import glob
 import random
 import shutil
-import PIL
 from PIL import Image
 import configparser
 import os
 import logging
-
+import datetime
 from common import dbconnector
 
 configfile = os.path.splitext(os.path.realpath(__file__))[0] + '.cfg'
@@ -26,7 +25,7 @@ RIGHT = 'right'
 class piScreen():
     curr_id = 0
     click_areas = {}
-    dbconn = None
+    last_displayed = None
 
     def __init__(self):
         pygame.init()
@@ -141,8 +140,11 @@ class piScreen():
         self.__screen.blit(img, (w_offset, 0))
         pygame.display.flip()  # update the display
 
+        self.last_displayed = datetime.datetime.now()
+
     def run(self):
         not_quit = True
+        refresh_interval = int(self.__settings['refresh_interval'])
         while not_quit:
             for event in pygame.event.get():
 
@@ -157,6 +159,12 @@ class piScreen():
 
                 elif event.type == pygame.QUIT:
                     not_quit = False
+
+            if refresh_interval != 0:
+                if int((datetime.datetime.now() - self.last_displayed).total_seconds()) < \
+                        refresh_interval:
+                    self.load_new_image()
+                    self.display_image()
 
 # landscape, portrait
 #ORIENTATION_PREFERRED = 'landscape'

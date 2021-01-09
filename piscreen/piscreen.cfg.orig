@@ -1,21 +1,15 @@
-[database]
-host =
-port =
-db =
-user =
-passwd =
-
 [config]
-remote_image_pattern =
-local_image_path = tmp/image.jpg
+images_path = 
+refresh_interval = 5
 
-; image buffer for the image navigation
-image_history_max = 20
-
-preferred_orientation = LANDSCAPE
-; new image will be added every refresh_interval seconds. If 0, no images will be added automatically
-refresh_interval = 1800
+[email]
+username = 
+password = 
+server = 
+authorized_recipients = 
+polling_interval = 30 
 
 [log]
-logfile = log/piscreen.log
+logfile = 
 level = DEBUG
+

@@ -1,96 +1,109 @@
+'''
+#TODO: Add documentation
+Purpose
+version
+license
+
+'''
 import pygame
 import time
 import glob
-import random
-import shutil
+#import shutil
 from PIL import Image
 import configparser
 import os
 import logging
 import datetime
-from common import dbconnector
 
 configfile = os.path.splitext(os.path.realpath(__file__))[0] + '.cfg'
 config = configparser.ConfigParser()
 config.read(configfile)
 
 logging.basicConfig(filename=config['log']['logfile'],
-                    level=eval('logging.' + config['log']['level']))
+                    format='%(asctime)s %(module)s %(levelname)-8s %(message)s',
+                    level=eval('logging.' + config['log']['level']),
+                    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-LEFT = 'left'
-RIGHT = 'right'
+LEFT, CENTER, RIGHT = 'left', 'center', 'right'
 
 
 class piScreen():
     curr_id = 0
     click_areas = {}
+    images = []
     last_displayed = None
 
     def __init__(self):
         pygame.init()
-        pygame.mouse.set_visible(False)
+
         self.__size = (480, 320)
-        self.__screen = pygame.display.set_mode(self.__size, pygame.FULLSCREEN)
+        if lower(os.uname()[1]) == 'piscreen':
+            logger.info("Loading display configuration for piscreen device")
+            self.__screen = pygame.display.set_mode(self.__size, pygame.FULLSCREEN)
+            pygame.mouse.set_visible(False)
+        else:
+            logger.info("Loading display configuration for debugging purposes")
+            self.__screen = pygame.display.set_mode(self.__size)
+
         self.__surface = pygame.Surface(self.__size)
         self.__create_piscreen_click_areas()
         self.__settings = config['config']
-        self.dbconn = dbconnector.dbConnector(configfile)
-        self.load_new_image()
+        self.load_images()
         self.display_image()
-        logger.debug("configfile: " + configfile)
 
-    def copy_file(self, filename, image_id):
-        shutil.copyfile(filename, self.__settings['local_image_path'])
-        self.curr_id = image_id
 
-    def load_new_image(self):
-        files = glob.glob(self.__settings['remote_image_pattern'])
-        filename = random.choice(files)
+    def load_images(self):
+        '''Load all images in the local path, and create array'''
+        reload_image = False
 
-        cmd = 'INSERT INTO piscreen_images(filename) VALUES("%s")' % filename
-
-        self.dbconn.open()
-        row_id = self.dbconn.insert_row(cmd)
-
-        if row_id is not None:
-            self.copy_file(filename, row_id)
-
-        cmd = 'DELETE FROM piscreen_images WHERE ID < ('\
-              'SELECT MIN(foo.mid) FROM ( '\
-              'SELECT id as mid FROM piscreen_images ORDER BY id DESC LIMIT {} '\
-              ') as foo);'.format(self.__settings['image_history_max'])
-        self.dbconn.execute_stmt(cmd)
-
-        self.dbconn.close()
-
-    def load_prev_image(self):
-        cmd = 'SELECT id, filename FROM piscreen_images WHERE id < %d '\
-            'ORDER BY id DESC LIMIT 1' % self.curr_id
-
-        self.dbconn.open()
-        row = self.dbconn.get_row(cmd)
-        self.dbconn.close()
-        if row is not None:
-            self.copy_file(row[1], row[0])
-
-    def load_next_image(self):
-        cmd = 'SELECT id, filename FROM piscreen_images WHERE id > %d '\
-            'ORDER BY id ASC LIMIT 1' % self.curr_id
-
-        self.dbconn.open()
-        row = self.dbconn.get_row(cmd)
-        self.dbconn.close()
-        if row is not None:
-            self.copy_file(row[1], row[0])
+        logger.debug("Current loaded images: {}".format(len(self.images)))
+        if len(self.images) > 0:
+            imgs = glob.glob(self.__settings['images_path']+'/*.jpg')
+            logger.debug("Reloading {} images: {}".format(len(imgs), imgs))
+            for i in imgs:
+                if i not in self.images:
+                    self.images.append(i)
+                    logger.info("New image found: {}".format(i))
+                    reload_image = True
         else:
-            self.load_new_image()
+            logger.debug("Loading initial images")
+            self.images = glob.glob(self.__settings['images_path']+'/*.jpg')
+            self.images.sort(key=os.path.getmtime)
+            reload_image = True
+
+        logger.debug("Loaded {} images: {}".format(len(self.images), self.images))
+
+        if len(self.images) > 0:
+            self.curr_id = len(self.images) - 1
+
+        if reload_image:
+            self.display_image()
+        else:
+            self.last_displayed = datetime.datetime.now()
+
+
+    def display_prev_image(self):
+        logger.debug("Current id: {}".format(self.curr_id))
+        if self.curr_id > 0:
+            self.curr_id = self.curr_id - 1
+        self.display_image()
+        logger.debug("Current id: {}".format(self.curr_id))
+
+    def display_next_image(self):
+        logger.debug("Current id: {}".format(self.curr_id))
+        if self.curr_id < len( self.images ) -1:
+            self.curr_id = self.curr_id +1
+        self.display_image()
+        logger.debug("Current id: {}".format(self.curr_id))
 
     def __create_piscreen_click_areas(self):
         self.click_areas = {}
         # display size (480, 320)
-        self.click_areas[LEFT] = pygame.Rect(0, 0, 240, 320)
-        self.click_areas[RIGHT] = pygame.Rect(240, 0, 240, 320)
+        self.click_areas[LEFT] = pygame.Rect(0, 0, 200, 320)
+        self.click_areas[CENTER] = pygame.Rect(200, 0, 80, 320)
+        self.click_areas[RIGHT] = pygame.Rect(280, 0, 200, 320)
+
 
     def get_clicked_area(self):
         result = None
@@ -106,41 +119,60 @@ class piScreen():
         '''
         Load previous image
         '''
-        # TODO display left arrow
-        self.load_prev_image()
-        self.display_image()
+        # TODO display left arrow for 2s
+        self.display_prev_image()
 
     def onClick_right(self):
         '''
         Load next image
         '''
-        # TODO display right arrow
-        self.load_next_image()
-        self.display_image()
+        # TODO display right arrow for 2s
+        self.display_next_image()
+
+    def onClick_center(self):
+        '''
+        Display center
+        '''
+        # TODO display right arrow for 2s
+        pass
 
     def display_image(self):
-        # scale image
-        baseheight = 320
-        img = Image.open(self.__settings['local_image_path'])
-        hpercent = (baseheight / float(img.size[1]))
-        wsize = int((float(img.size[0]) * float(hpercent)))
-        img = img.resize((wsize, baseheight), Image.ANTIALIAS)
-        img.save(self.__settings['local_image_path'])
+        if len(self.images):
+            # scale image
+            baseheight = 320
+            img_path = self.images[self.curr_id]
 
-        w_offset = 0
-        if wsize < 480:
-            w_offset = int((480 - wsize) / 2)
-        img = pygame.image.load(self.__settings['local_image_path'])
+            img = Image.open(img_path)
+            hpercent = (baseheight / float(img.size[1]))
+            wsize = int((float(img.size[0]) * float(hpercent)))
+            img = img.resize((wsize, baseheight), Image.ANTIALIAS)
+            img.save(img_path)
 
-        # remove previous image from the screen
-        self.__surface.fill((0, 0, 0))
-        self.__screen.blit(self.__surface, (0, 0))
-        pygame.display.flip()
+            w_offset = 0
+            if wsize < 480:
+                w_offset = int((480 - wsize) / 2)
+            img = pygame.image.load(img_path)
 
-        self.__screen.blit(img, (w_offset, 0))
-        pygame.display.flip()  # update the display
+            # remove previous image from the screen
+            self.__surface.fill((0, 0, 0))
+            self.__screen.blit(self.__surface, (0, 0))
+            pygame.display.flip()
+
+            self.__screen.blit(img, (w_offset, 0))
+            pygame.display.flip()  # update the display
 
         self.last_displayed = datetime.datetime.now()
+
+
+    def display_areas(self):
+        color = ( 255, 0, 0 )
+        pygame.draw.line(self.__screen, color, (200, 0), (200, 320))
+        pygame.draw.line(self.__screen, color, (280, 0), (280, 320))
+        pygame.display.update()
+
+        pygame.display.flip()
+        time.sleep(5)
+        self.display_image()
 
     def run(self):
         not_quit = True
@@ -149,22 +181,31 @@ class piScreen():
             for event in pygame.event.get():
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
+                    # display during 2s the areas (left, right arrows and dash lines separating areas)
+                    #self.display_areas()
+
                     clicked_area = self.get_clicked_area()
-                    logger.debug("MOUSEBUTTONDOWN detected: {}"
+                    logger.info("MOUSEBUTTONDOWN detected on {} area"
                                  .format(clicked_area))
                     if clicked_area == LEFT:
                         self.onClick_left()
                     elif clicked_area == RIGHT:
                         self.onClick_right()
+                    else:
+                        self.onClick_center()
 
                 elif event.type == pygame.QUIT:
+                    logger.info("Quitting")
+                    not_quit = False
+                elif event.type == pygame.KEYDOWN and \
+                        event.key == pygame.K_ESCAPE:
+                    logger.info("ESC key pressed. Quitting")
                     not_quit = False
 
             if refresh_interval != 0:
-                if int((datetime.datetime.now() - self.last_displayed).total_seconds()) < \
+                if int((datetime.datetime.now() - self.last_displayed).total_seconds()) > \
                         refresh_interval:
-                    self.load_new_image()
-                    self.display_image()
+                    self.load_images()
 
 # landscape, portrait
 #ORIENTATION_PREFERRED = 'landscape'

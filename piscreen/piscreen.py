@@ -8,8 +8,8 @@ license
 import pygame
 import time
 import glob
-#import shutil
 from PIL import Image
+from math import ceil
 import configparser
 import os
 import logging
@@ -26,6 +26,8 @@ logging.basicConfig(filename=config['log']['logfile'],
 logger = logging.getLogger(__name__)
 
 LEFT, CENTER, RIGHT = 'left', 'center', 'right'
+WIDTH = int(config['display']['WIDTH'])
+HEIGHT = int(config['display']['HEIGHT'])
 
 
 class piScreen():
@@ -37,18 +39,24 @@ class piScreen():
     def __init__(self):
         pygame.init()
 
-        self.__size = (480, 320)
-        if lower(os.uname()[1]) == 'piscreen':
+        self.__settings = config['config']
+        logger.debug("Setting display size: {}x{}".format(WIDTH, HEIGHT))
+        self.__size = (WIDTH, HEIGHT)
+        # When it is run on the piscreen device, display as fullscreen and
+        # hide the cursor
+        if os.uname()[1].lower() == 'piscreen':
             logger.info("Loading display configuration for piscreen device")
-            self.__screen = pygame.display.set_mode(self.__size, pygame.FULLSCREEN)
+            self.__screen = pygame.display.set_mode(self.__size,
+                                                    pygame.FULLSCREEN)
             pygame.mouse.set_visible(False)
         else:
-            logger.info("Loading display configuration for debugging purposes")
+            logger.info("Loading display configuration for not a piscreen "+\
+                        "device")
             self.__screen = pygame.display.set_mode(self.__size)
 
         self.__surface = pygame.Surface(self.__size)
         self.__create_piscreen_click_areas()
-        self.__settings = config['config']
+
         self.load_images()
         self.display_image()
 
@@ -60,7 +68,7 @@ class piScreen():
         logger.debug("Current loaded images: {}".format(len(self.images)))
         if len(self.images) > 0:
             imgs = glob.glob(self.__settings['images_path']+'/*.jpg')
-            logger.debug("Reloading {} images: {}".format(len(imgs), imgs))
+            logger.debug("Looking for new images")
             for i in imgs:
                 if i not in self.images:
                     self.images.append(i)
@@ -72,7 +80,8 @@ class piScreen():
             self.images.sort(key=os.path.getmtime)
             reload_image = True
 
-        logger.debug("Loaded {} images: {}".format(len(self.images), self.images))
+        logger.debug("Loaded {} images: {}".format(len(self.images),
+                                                   self.images))
 
         if len(self.images) > 0:
             self.curr_id = len(self.images) - 1
@@ -99,10 +108,17 @@ class piScreen():
 
     def __create_piscreen_click_areas(self):
         self.click_areas = {}
-        # display size (480, 320)
-        self.click_areas[LEFT] = pygame.Rect(0, 0, 200, 320)
-        self.click_areas[CENTER] = pygame.Rect(200, 0, 80, 320)
-        self.click_areas[RIGHT] = pygame.Rect(280, 0, 200, 320)
+        # display size (WIDTH, HEIGHT)
+        width_sides = 2 * ceil(WIDTH/5)
+        width_center = WIDTH - (2 * width_sides)
+        logger.debug("Click areas: LEFT:0,{0}; CENTER:{0},{1}; RIGHT:{1},{2}"
+                     .format(width_sides, width_sides+width_center,
+                             width_sides+width_center+width_sides))
+        self.click_areas[LEFT] = pygame.Rect(0, 0, width_sides, HEIGHT)
+        self.click_areas[CENTER] = pygame.Rect(width_sides, 0, width_center,
+                                               HEIGHT)
+        self.click_areas[RIGHT] = pygame.Rect(width_sides + width_center, 0,
+                                              width_sides, HEIGHT)
 
 
     def get_clicked_area(self):
@@ -119,27 +135,25 @@ class piScreen():
         '''
         Load previous image
         '''
-        # TODO display left arrow for 2s
         self.display_prev_image()
 
     def onClick_right(self):
         '''
         Load next image
         '''
-        # TODO display right arrow for 2s
         self.display_next_image()
 
     def onClick_center(self):
         '''
         Display center
         '''
-        # TODO display right arrow for 2s
+        # TODO display menu
         pass
 
     def display_image(self):
         if len(self.images):
             # scale image
-            baseheight = 320
+            baseheight = HEIGHT
             img_path = self.images[self.curr_id]
 
             img = Image.open(img_path)
@@ -149,8 +163,8 @@ class piScreen():
             img.save(img_path)
 
             w_offset = 0
-            if wsize < 480:
-                w_offset = int((480 - wsize) / 2)
+            if wsize < WIDTH:
+                w_offset = int((WIDTH - wsize) / 2)
             img = pygame.image.load(img_path)
 
             # remove previous image from the screen
@@ -159,15 +173,22 @@ class piScreen():
             pygame.display.flip()
 
             self.__screen.blit(img, (w_offset, 0))
-            pygame.display.flip()  # update the display
+            # update the display
+            pygame.display.flip()
 
         self.last_displayed = datetime.datetime.now()
 
 
     def display_areas(self):
+        #FIXME currently not working. Lines are not erased
+        width_sides = 2 * ceil(WIDTH/5)
+        width_center = WIDTH - (2 * width_sides)
+
         color = ( 255, 0, 0 )
-        pygame.draw.line(self.__screen, color, (200, 0), (200, 320))
-        pygame.draw.line(self.__screen, color, (280, 0), (280, 320))
+        pygame.draw.line(self.__screen, color, (width_sides, 0),
+                         (width_sides, HEIGHT))
+        pygame.draw.line(self.__screen, color, (width_sides+width_center, 0),
+                         (width_sides+width_center, HEIGHT))
         pygame.display.update()
 
         pygame.display.flip()
@@ -181,7 +202,8 @@ class piScreen():
             for event in pygame.event.get():
 
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    # display during 2s the areas (left, right arrows and dash lines separating areas)
+                    # FIXME: display during 2s the areas (left, right arrows
+                    #        and dash lines separating areas)
                     #self.display_areas()
 
                     clicked_area = self.get_clicked_area()
@@ -203,35 +225,9 @@ class piScreen():
                     not_quit = False
 
             if refresh_interval != 0:
-                if int((datetime.datetime.now() - self.last_displayed).total_seconds()) > \
-                        refresh_interval:
+                if int((datetime.datetime.now() -
+                    self.last_displayed).total_seconds()) > refresh_interval:
                     self.load_images()
-
-# landscape, portrait
-#ORIENTATION_PREFERRED = 'landscape'
-#
-#
-#ORIENTATION_180 = 3
-#ORIENTATION_270 = 6
-#ORIENTATION_090 = 8
-#
-# def get_random_image()
-#    pass
-#
-# def get_rotation_angle(filename)
-#    #Check if file exists
-#    img = Image.open(filename)
-#    img_exif = dict(img._getexif().items())
-#    img_orientation =  img_exif['orientation']
-#
-#    if ORIENTATION_PREFERRED = 'landscape':
-#        if img_orientation == ORIENTATION_180:
-#            angle = 180
-#        elif img_orientation == ORIENTATION_270 or \
-#             img_orientation == ORIENTATION_090:
-#            angle = -1
-#
-#    return angle
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ with open('LICENSE') as f:
 
 setup(
     name='piscreen',
-    version='0.1.0',
+    version='0.22.0',
     description='PiScreen package, to display remote images on a raspberry Pi 3.5" LCD',
     long_description=readme,
     author='Jordi Vea i Barbany',

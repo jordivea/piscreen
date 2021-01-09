@@ -1,12 +1,14 @@
 [Unit]
-Description=piScreen Service
+Description=Mail parser service for piScreen
 After=multi-user.target
 StartLimitBurst=5
 StartLimitIntervalSec=30
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/python3 /home/pi/piscreen/piscreen/piscreen.py
+WorkingDirectory=/home/pi/piscreen/piscreen
+User=pi
+Type=idle
+ExecStart=/usr/bin/python3 /home/pi/piscreen/piscreen/mailparser.py &> /dev/null
 Restart=always
 RestartSec=1
 

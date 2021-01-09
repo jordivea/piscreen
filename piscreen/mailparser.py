@@ -8,6 +8,7 @@ import email
 from email.header import decode_header
 import tempfile
 import textwrap
+import re
 
 configfile = 'piscreen.cfg'
 config = configparser.ConfigParser()
@@ -19,6 +20,11 @@ logging.basicConfig(filename=config['log']['logfile'],
                     datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
+WIDTH = int(config['display']['WIDTH'])
+HEIGHT = int(config['display']['HEIGHT'])
+
+TXT_IMG_BGCOLOR = config['config']['txt_img_background_color']
+TXT_IMG_FNTCOLOR = config['config']['txt_img_font_color']
 
 class MailParser():
 
@@ -31,23 +37,32 @@ class MailParser():
     def create_img_from_txt(self, text):
         # create image from text and save in piscreen media directory
         txt = text.strip()
+        logger.debug("Creating image from text: '{}'".format(text))
+        if len(txt) == 0:
+            logger.debug("Empty message. Discarding image creation")
+            return
 
-        img = Image.new('RGB', (480,320), color=(255,255,255))
-        fnt = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf', 30)
+        img = Image.new('RGB', (WIDTH,HEIGHT), color=TXT_IMG_BGCOLOR)
+        fnt = ImageFont.truetype(
+                '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
+                30)
         drw = ImageDraw.Draw(img)
 
-        w, h = fnt.getsize(txt)
-        if w < 460:
-            #allow 10 pixel margin
-            x = (480 - w)/2
-            y = (300 - h)/2
+        # TODO. Dynamically increase font size according to text width
+        # Short text, shall be display as large as possible
 
-            drw.text((x,y), txt, font=fnt, fill=(0,0,0))
+        w, h = fnt.getsize(txt)
+        if w < (WIDTH-20):
+            #allow 10 pixel margin
+            x = (WIDTH - w)/2
+            y = (HEIGHT - h)/2
+
+            drw.text((x,y), txt, font=fnt, fill=TXT_IMG_FNTCOLOR)
         else:
             # wrap to 30 chars which is aprox 460 chars with current font
             # lines are aligned to the left, according to the longest line
             lines = textwrap.wrap(txt, width=30, replace_whitespace=False)
-            x = (480 - len(max(lines, key=len))/2)
+            x = (WIDTH - len(max(lines, key=len))/2)
             max_width = 0
             y = 10
             rendered_lines = []
@@ -57,16 +72,18 @@ class MailParser():
                 rendered_lines.append((y, line))
                 y += h
 
-            rendered_x = (480 - max_width)/2
+            rendered_x = (WIDTH - max_width)/2
             for rendered_y, rendered_line in rendered_lines:
                 drw.text((rendered_x, rendered_y), rendered_line, font=fnt,
                         fill=(0,0,0))
 
-        filename = tempfile.NamedTemporaryFile(prefix="piscreen_", suffix=".jpg")
+        filename = tempfile.NamedTemporaryFile(prefix="piscreen_",
+                                               suffix=".jpg")
         filename = filename.name.split('/')[-1]
         filepath = os.path.join(config['config']['images_path'], filename)
 
-        logger.info("New image {} created with text '{}'".format(filepath, txt))
+        logger.info("New image {} created with text '{}'".format(filepath,
+                                                                 txt))
         img.save(filepath)
 
     def read_inbox(self):
@@ -106,7 +123,8 @@ class MailParser():
                     logger.debug("Message from {}".format(sender))
 
                     if not self.is_authorized(sender):
-                        logger.info("Message from unauthorized user {} marked for deletion".format(sender))
+                        logger.info("Message from unauthorized user {} "+
+                                    "marked for deletion".format(sender))
                         # Remove message from imap
                         imap.store(num, '+FLAGS', '\\Deleted')
                         continue
@@ -118,7 +136,8 @@ class MailParser():
                         subject = subject.decode(encoding)
 
                     #TODO process subject.upper(): IMAGE/RECEIPE/ACTION
-                    logger.debug("Message received from authorized sender '{}' and subject '{}'".format(sender, subject))
+                    logger.debug("Message received from authorized sender "+
+                            "'{}' and subject '{}'".format(sender, subject))
 
                     # if the email message is multipart
                     if msg.is_multipart():
@@ -127,27 +146,32 @@ class MailParser():
                         for part in msg.walk():
                             # extract content type of email
                             content_type = part.get_content_type()
-                            content_disposition = str(part.get("Content-Disposition"))
+                            content_disposition = \
+                                    str(part.get("Content-Disposition"))
                             try:
                                 # get the email body
                                 body = part.get_payload(decode=True).decode()
                             except:
                                 pass
-                            if content_type == "text/plain" and "attachment" not in content_disposition:
-                                # print text/plain emails and skip attachments
-                                self.create_img_from_txt(body)
-                            elif "attachment" in content_disposition:
-                            #if "attachment" in content_disposition:
+
+                            if "attachment" in content_disposition:
                                 # download attachment
                                 filename = part.get_filename()
                                 if filename:
-                                    filepath = os.path.join(config['config']['images_path'], filename)
+                                    filepath = os.path.join(
+                                            config['config']['images_path'],
+                                            filename)
                                     # download attachment and save it
-                                    logger.info("Writing attachment to: {}".format(filepath))
-                                    open(filepath, "wb").write(part.get_payload(decode=True))
+                                    logger.info("Writing attachment to: {}"
+                                            .format(filepath))
+                                    open(filepath, "wb").write(
+                                            part.get_payload(decode=True))
+                            elif content_type == "text/plain":
+                                # print text/plain emails
+                                self.create_img_from_txt(body)
                     else:
                         # extract content type of email
-                        logger.debug("Message not multipart. Discarding")
+                        logger.debug("Message not multipart")
                         content_type = msg.get_content_type()
                         # get the email body
                         body = msg.get_payload(decode=True).decode()
@@ -168,7 +192,8 @@ class MailParser():
         while True:
             logger.debug("Mail parser process started")
             self.read_inbox()
-            logger.debug("Mail parser process stopped for {}s".format(polling_interval))
+            logger.debug("Mail parser process stopped for {}s"
+                         .format(polling_interval))
             time.sleep(polling_interval)
 
 if __name__ == '__main__':

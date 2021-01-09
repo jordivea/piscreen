@@ -1,6 +1,12 @@
 [config]
 images_path = 
 refresh_interval = 5
+txt_img_background_color = #ffffff
+txt_img_font_color = #000000
+
+[display]
+WIDTH = 480
+HEIGHT = 320
 
 [email]
 username = 
@@ -11,5 +17,5 @@ polling_interval = 30
 
 [log]
 logfile = 
-level = DEBUG
+level = INFO
 

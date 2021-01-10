@@ -1,5 +1,14 @@
 [config]
+#local images path
 images_path = 
+
+#time interval to look for new images
+refresh_interval = 5
+
+#slideshow. TODO: to be implemented as menu action. 0: off, other, seconds
+slideshow_interval = 30
+
+#Text to image properties
 refresh_interval = 5
 txt_img_background_color = #ffffff
 txt_img_font_color = #000000

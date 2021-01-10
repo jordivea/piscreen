@@ -35,6 +35,7 @@ class piScreen():
     click_areas = {}
     images = []
     last_displayed = None
+    last_slideshow = datetime.datetime.now()
 
     def __init__(self):
         pygame.init()
@@ -80,11 +81,11 @@ class piScreen():
             self.images.sort(key=os.path.getmtime)
             reload_image = True
 
+            if len(self.images) > 0:
+                self.curr_id = len(self.images) - 1
+
         logger.debug("Loaded {} images: {}".format(len(self.images),
                                                    self.images))
-
-        if len(self.images) > 0:
-            self.curr_id = len(self.images) - 1
 
         if reload_image:
             self.display_image()
@@ -96,15 +97,15 @@ class piScreen():
         logger.debug("Current id: {}".format(self.curr_id))
         if self.curr_id > 0:
             self.curr_id = self.curr_id - 1
+        logger.debug("New current id: {}".format(self.curr_id))
         self.display_image()
-        logger.debug("Current id: {}".format(self.curr_id))
 
     def display_next_image(self):
         logger.debug("Current id: {}".format(self.curr_id))
         if self.curr_id < len( self.images ) -1:
             self.curr_id = self.curr_id +1
+        logger.debug("New current id: {}".format(self.curr_id))
         self.display_image()
-        logger.debug("Current id: {}".format(self.curr_id))
 
     def __create_piscreen_click_areas(self):
         self.click_areas = {}
@@ -152,19 +153,26 @@ class piScreen():
 
     def display_image(self):
         if len(self.images):
-            # scale image
-            baseheight = HEIGHT
-            img_path = self.images[self.curr_id]
+            logger.debug("Display image {}:{}".format(self.curr_id,
+                self.images[self.curr_id]))
 
+            img_path = self.images[self.curr_id]
             img = Image.open(img_path)
-            hpercent = (baseheight / float(img.size[1]))
-            wsize = int((float(img.size[0]) * float(hpercent)))
-            img = img.resize((wsize, baseheight), Image.ANTIALIAS)
-            img.save(img_path)
+
+            if img.size[1] > HEIGHT:
+               # scale image
+                hpercent = (HEIGHT / float(img.size[1]))
+                wsize = int((float(img.size[0]) * float(hpercent)))
+                img = img.resize((wsize, HEIGHT), Image.ANTIALIAS)
+                img.save(img_path)
+                logger.debug("Image resized: {}".format(img_path))
+            else:
+                wsize = img.size[0]
 
             w_offset = 0
             if wsize < WIDTH:
                 w_offset = int((WIDTH - wsize) / 2)
+
             img = pygame.image.load(img_path)
 
             # remove previous image from the screen
@@ -177,7 +185,7 @@ class piScreen():
             pygame.display.flip()
 
         self.last_displayed = datetime.datetime.now()
-
+        self.last_slideshow = datetime.datetime.now()
 
     def display_areas(self):
         #FIXME currently not working. Lines are not erased
@@ -195,9 +203,18 @@ class piScreen():
         time.sleep(5)
         self.display_image()
 
+    def slideshow(self):
+        if len(self.images):
+            logger.debug("Slideshow: current image {}".format(self.curr_id))
+            if self.curr_id == len(self.images) -1:
+                # last image, start the list from the begining
+                self.curr_id = -1
+            self.display_next_image()
+
     def run(self):
         not_quit = True
         refresh_interval = int(self.__settings['refresh_interval'])
+        slideshow_interval = int(self.__settings['slideshow_interval'])
         while not_quit:
             for event in pygame.event.get():
 
@@ -229,6 +246,10 @@ class piScreen():
                     self.last_displayed).total_seconds()) > refresh_interval:
                     self.load_images()
 
+            if slideshow_interval != 0 and len(self.images):
+                if int((datetime.datetime.now() -
+                    self.last_slideshow).total_seconds()) > slideshow_interval:
+                    self.slideshow()
 
 if __name__ == '__main__':
     piscreen = piScreen()

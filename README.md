@@ -29,28 +29,64 @@ The configuration file piscreen/piscreen/piscreen.cfg is common for both process
 ## Pre-requisites
 
 **LCD**
-To be documented.
+```/home/pi/LCD_show_v6_1_3/LCD_35v```
+
+**Clone repo**
+```
+cd
+git clone -b develop https://github.com/jordivea/piscreen
+```
 
 **Install python libraries**
-'pip3 install requirements.txt'
+```
+pip3 install -r requirements.txt
+```
 
 **Autlogin**
-Using raspi-config, configure raspberry to auto login in console mode.
 
-## piscreen
+Using raspi-config, configure raspberry to auto login in console mode.
+Additionally set hostname to piscreen.
+
+## Configuration file
+
+```
+cd /home/pi/piscreen/piscreen
+cp piscreen.cfg.orig piscreen.cfg
+```
+
+Edit *piscreen.cfg* with the correct values
+ 
+## Logging
+
+Add daily crontab task to rotate logs.
+
+```cp piscreen.log piscreen.log.$(date +%Y%m%d); cat /dev/null > piscreen.log; bzip2 piscreen.log.$(date +%Y%m%d)```
+
+## Auto run
+
+### piscreen
+
 The process must be started when the raspberry pi is booted. As the pi user will be logged automatically, add the script call in the user's .bashrc file
 
-*vim /home/pi/.bashrc*
-'python3 /home/pi/piscreen/piscreen/piscreen.py &>/dev/null'
+```vim /home/pi/.bashrc```
 
-## piscreen.mailparser.service
-*sudo cp /home/pi/piscreen/piscreen/piscreen.mailparser.service /lib/systemd/system
-sudo systemctl reload-daemon
+```
+#Run piscreen script
+python3 /home/pi/piscreen/piscreen/piscreen.py &>/dev/null'
+```
+
+### piscreen.mailparser.service
+
+Run as a service.
+```
+sudo cp /home/pi/piscreen/piscreen/piscreen.mailparser.service /lib/systemd/system
+sudo systemctl daemon-reload
 sudo systemctl enable piscreen.mailparser.service
-sudo systemctl start piscreen.mailparser.service*
-
+sudo systemctl start piscreen.mailparser.service
+```
 
 # Next versions
-- Parse mail messages for text message properties (background and font color), scheduled display, expiration
-- Add receipes functionality. Menu can alternate between images and receipes. Receipes are to be sent via email, using markdown notation.
+* Dynamically change font size in order to use as much display as possible
+* Parse mail messages for text message properties (background and font color), scheduled display, expiration
+* Add receipes functionality. Menu can alternate between images and receipes. Receipes are to be sent via email, using markdown notation.
 

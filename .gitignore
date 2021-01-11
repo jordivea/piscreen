@@ -1,4 +1,5 @@
-log
 !log/.empty
-media/images/*.jpg
+log/*
+!media/images/.emtpy
+media/images/*
 piscreen/piscreen.cfg

@@ -61,14 +61,20 @@ class piScreen():
         self.load_images()
         self.display_image()
 
+    def find_images(self):
+        imgs = []
+        for ext in ('jpg', 'JPG'):
+            imgs.extend(glob.glob(self.__settings['images_path']+'/*.'+ext))
+            imgs.sort(key=os.path.getmtime)
+        return imgs
 
     def load_images(self):
         '''Load all images in the local path, and create array'''
         reload_image = False
 
         logger.debug("Current loaded images: {}".format(len(self.images)))
-        if len(self.images) > 0:
-            imgs = glob.glob(self.__settings['images_path']+'/*.jpg')
+        if len(self.images):
+            imgs = self.find_images()
             logger.debug("Looking for new images")
             for i in imgs:
                 if i not in self.images:
@@ -77,21 +83,18 @@ class piScreen():
                     reload_image = True
         else:
             logger.debug("Loading initial images")
-            self.images = glob.glob(self.__settings['images_path']+'/*.jpg')
-            self.images.sort(key=os.path.getmtime)
+            self.images = self.find_images()
             reload_image = True
-
-            if len(self.images) > 0:
-                self.curr_id = len(self.images) - 1
 
         logger.debug("Loaded {} images: {}".format(len(self.images),
                                                    self.images))
 
         if reload_image:
+            if len(self.images):
+                self.curr_id = len(self.images) - 1
             self.display_image()
         else:
             self.last_displayed = datetime.datetime.now()
-
 
     def display_prev_image(self):
         logger.debug("Current id: {}".format(self.curr_id))
@@ -120,7 +123,6 @@ class piScreen():
                                                HEIGHT)
         self.click_areas[RIGHT] = pygame.Rect(width_sides + width_center, 0,
                                               width_sides, HEIGHT)
-
 
     def get_clicked_area(self):
         result = None

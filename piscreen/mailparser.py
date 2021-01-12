@@ -84,7 +84,10 @@ class MailParser():
 
         logger.info("New image {} created with text '{}'".format(filepath,
                                                                  txt))
+        #Rotate image to default position (upside down, landscape)
+        img = img.rotate(180, expand=True)
         img.save(filepath)
+        img.close()
 
     def read_inbox(self):
         # create an IMAP4 class with SSL

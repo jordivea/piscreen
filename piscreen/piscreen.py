@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 LEFT, CENTER, RIGHT = 'left', 'center', 'right'
 WIDTH = int(config['display']['WIDTH'])
 HEIGHT = int(config['display']['HEIGHT'])
-
+EXIFTAG_ORIENTATION = 274
 
 class piScreen():
     curr_id = 0
@@ -153,6 +153,20 @@ class piScreen():
         # TODO display menu
         pass
 
+    def get_image_rotation(self, img):
+        rotation = 0
+        if hasattr(img, '_getexif'):
+            exifdata = img._getexif()
+            if exifdata:
+                #default orientation ==3, raspberry pi is upside down, landscape
+                if exifdata[EXIFTAG_ORIENTATION] == 1:
+                    rotation = 180
+                elif exifdata[EXIFTAG_ORIENTATION] == 6:
+                    rotation = 90
+                elif exifdata[EXIFTAG_ORIENTATION] == 8:
+                    rotation = 270
+        return rotation
+
     def display_image(self):
         if len(self.images):
             logger.debug("Display image {}:{}".format(self.curr_id,
@@ -160,16 +174,24 @@ class piScreen():
 
             img_path = self.images[self.curr_id]
             img = Image.open(img_path)
+            img_save = False
+
+            rotation = self.get_image_rotation(img)
+            if rotation:
+                img = img.rotate(rotation, expand=True)
+                img_save = True
 
             if img.size[1] > HEIGHT:
                # scale image
                 hpercent = (HEIGHT / float(img.size[1]))
                 wsize = int((float(img.size[0]) * float(hpercent)))
                 img = img.resize((wsize, HEIGHT), Image.ANTIALIAS)
-                img.save(img_path)
+                img_save = True
                 logger.debug("Image resized: {}".format(img_path))
             else:
                 wsize = img.size[0]
+
+            if img_save: img.save(img_path)
 
             w_offset = 0
             if wsize < WIDTH:

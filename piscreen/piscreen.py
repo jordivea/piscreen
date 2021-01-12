@@ -91,7 +91,7 @@ class piScreen():
 
         if reload_image:
             if len(self.images):
-                self.curr_id = len(self.images) - 1
+                self.curr_id = len(self.images) -1
             self.display_image()
         else:
             self.last_displayed = datetime.datetime.now()
@@ -99,7 +99,9 @@ class piScreen():
     def display_prev_image(self):
         logger.debug("Current id: {}".format(self.curr_id))
         if self.curr_id > 0:
-            self.curr_id = self.curr_id - 1
+            self.curr_id = self.curr_id -1
+        elif self.curr_id == 0:
+            self.curr_id = len(self.images) -1
         logger.debug("New current id: {}".format(self.curr_id))
         self.display_image()
 
@@ -107,6 +109,9 @@ class piScreen():
         logger.debug("Current id: {}".format(self.curr_id))
         if self.curr_id < len( self.images ) -1:
             self.curr_id = self.curr_id +1
+        elif self.curr_id == len(self.images) -1:
+            # last image, start the list from the begining
+            self.curr_id = 0
         logger.debug("New current id: {}".format(self.curr_id))
         self.display_image()
 
@@ -227,14 +232,6 @@ class piScreen():
         time.sleep(5)
         self.display_image()
 
-    def slideshow(self):
-        if len(self.images):
-            logger.debug("Slideshow: current image {}".format(self.curr_id))
-            if self.curr_id == len(self.images) -1:
-                # last image, start the list from the begining
-                self.curr_id = -1
-            self.display_next_image()
-
     def run(self):
         not_quit = True
         refresh_interval = int(self.__settings['refresh_interval'])
@@ -273,7 +270,9 @@ class piScreen():
             if slideshow_interval != 0 and len(self.images):
                 if int((datetime.datetime.now() -
                     self.last_slideshow).total_seconds()) > slideshow_interval:
-                    self.slideshow()
+                    logger.debug("Slideshow: Display next image")
+                    self.display_next_image()
+
 
 if __name__ == '__main__':
     piscreen = piScreen()

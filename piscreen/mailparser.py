@@ -8,9 +8,8 @@ import email
 from email.header import decode_header
 import tempfile
 import textwrap
-import re
 
-configfile = 'piscreen.cfg'
+configfile = os.path.split(os.path.realpath(__file__))[0] + '/piscreen.cfg'
 config = configparser.ConfigParser()
 config.read(configfile)
 
@@ -25,16 +24,62 @@ HEIGHT = int(config['display']['HEIGHT'])
 
 TXT_IMG_BGCOLOR = config['config']['txt_img_background_color']
 TXT_IMG_FNTCOLOR = config['config']['txt_img_font_color']
+TXT_FONT = config['config']['txt_font']
 
 class MailParser():
 
     def is_authorized(self, rcpt):
+        """
+        MailParser method to check if the given recipient is in the authorized
+        recipients list in the configuration file
+
+        Args:
+            rcpt (string): email address
+
+        Returns:
+            bool: True if rcpt is authorized, false otherwise
+        """
         for r in config['email']['authorized_recipients'].split(','):
             if r in rcpt:
                 return True
         return False
 
+    def get_largest_font_from_text(self, txt):
+        """
+        MailParser method to create a font object with the given text which
+        will be expanded to fill as much display as possible
+
+        Args:
+            txt (string): text to be drawn in the new image
+
+        Returns:
+            ImageFont
+        """
+
+        fnt = None
+        size = 32
+        while True:
+            fnt = ImageFont.truetype(TXT_FONT, size)
+            w,_ = fnt.getsize(txt)
+            if w > (WIDTH-20): #Allow 10px margins
+                print("width: {}".format(w))
+                #use the previous font size
+                fnt = ImageFont.truetype(TXT_FONT, size-2)
+                break
+            else:
+                size = size + 2
+                logger.debug("Increasing font size to {}".format(size))
+
+        return fnt
+
     def create_img_from_txt(self, text):
+        """
+        MailParser method to create an image from the given text. The image
+        is created in the piscreen images directory with prefix 'piscreen_'.
+
+        Args:
+            text (string): text to be drawn in the new image
+        """
         # create image from text and save in piscreen media directory
         txt = text.strip()
         logger.debug("Creating image from text: '{}'".format(text))
@@ -43,21 +88,18 @@ class MailParser():
             return
 
         img = Image.new('RGB', (WIDTH,HEIGHT), color=TXT_IMG_BGCOLOR)
-        fnt = ImageFont.truetype(
-                '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf',
-                30)
+        fnt = ImageFont.truetype(TXT_FONT, 30)
         drw = ImageDraw.Draw(img)
 
-        # TODO. Dynamically increase font size according to text width
+        # Dynamically increase font size according to text width
         # Short text, shall be display as large as possible
-
-        w, h = fnt.getsize(txt)
-        if w < (WIDTH-20):
-            #allow 10 pixel margin
+        w, _ = fnt.getsize(txt)
+        if w < (WIDTH-20):  #allow 10 pixel margin
+            fnt = self.get_largest_font_from_text(txt)
+            w, h = fnt.getsize(txt)
             x = (WIDTH - w)/2
             y = (HEIGHT - h)/2
-
-            drw.text((x,y), txt, font=fnt, fill=TXT_IMG_FNTCOLOR)
+            drw.text((x, y), txt, font=fnt, fill=TXT_IMG_FNTCOLOR)
         else:
             # wrap to 30 chars which is aprox 460 chars with current font
             # lines are aligned to the left, according to the longest line
@@ -201,4 +243,6 @@ class MailParser():
 
 if __name__ == '__main__':
     mail = MailParser()
-    mail.run()
+    #mail.run()
+    t = "Hola!"
+    mail.create_img_from_txt(t)

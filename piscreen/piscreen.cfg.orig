@@ -12,6 +12,7 @@ slideshow_interval = 30
 refresh_interval = 5
 txt_img_background_color = #ffffff
 txt_img_font_color = #000000
+txt_font = /usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf
 
 [display]
 WIDTH = 480

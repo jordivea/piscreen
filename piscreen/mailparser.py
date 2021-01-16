@@ -132,6 +132,16 @@ class MailParser():
         img.close()
 
     def read_inbox(self):
+        """
+        MailParser method to read all messages in INBOX.
+        When a message contains an attachment it is saved in the images
+        directory.
+        When a message contains text, an image is created with the text
+
+        Senders must be whitelisted, otherwise the message is discarded.
+        All messages are deleted after being processed or discarded
+        """
+
         # create an IMAP4 class with SSL
         imap = imaplib.IMAP4_SSL(config['email']['server'])
         # authenticate
@@ -233,6 +243,12 @@ class MailParser():
         imap.logout()
 
     def run(self):
+        """
+        Mail Processor run method.
+        Processes received email messages in the configured account INBOX,
+        and goes back to sleep.
+        """
+
         polling_interval = int(config['email']['polling_interval'])
         while True:
             logger.debug("Mail parser process started")
@@ -243,6 +259,4 @@ class MailParser():
 
 if __name__ == '__main__':
     mail = MailParser()
-    #mail.run()
-    t = "Hola!"
-    mail.create_img_from_txt(t)
+    mail.run()

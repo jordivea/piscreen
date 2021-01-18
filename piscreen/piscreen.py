@@ -25,17 +25,34 @@ logging.basicConfig(filename=config['log']['logfile'],
                     datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
+#Areas
 LEFT, CENTER, RIGHT = 'left', 'center', 'right'
+
+#Menu action
+DELETE, SLIDESHOW, EXIT = 'delete', 'slideshow', 'exit'
+
 WIDTH = int(config['display']['WIDTH'])
 HEIGHT = int(config['display']['HEIGHT'])
 EXIFTAG_ORIENTATION = 274
 
 class piScreen():
-    curr_id = 0
+    #visible menu
+    visible_menu = False
+
+    #areas
     click_areas = {}
+    areas = {}
+
+    #menu actions
+    menu_click_areas = {}
+    menu_areas = {}
+
+    #images
+    curr_id = 0
     images = []
     last_displayed = None
     last_slideshow = datetime.datetime.now()
+    slideshow_interval = int(config['config']['slideshow_interval'])
 
     def __init__(self):
         pygame.init()
@@ -116,28 +133,90 @@ class piScreen():
         self.display_image()
 
     def __create_piscreen_click_areas(self):
-        self.click_areas = {}
-        # display size (WIDTH, HEIGHT)
-        width_sides = 2 * ceil(WIDTH/5)
-        width_center = WIDTH - (2 * width_sides)
-        logger.debug("Click areas: LEFT:0,{0}; CENTER:{0},{1}; RIGHT:{1},{2}"
-                     .format(width_sides, width_sides+width_center,
-                             width_sides+width_center+width_sides))
-        self.click_areas[LEFT] = pygame.Rect(0, 0, width_sides, HEIGHT)
-        self.click_areas[CENTER] = pygame.Rect(width_sides, 0, width_center,
-                                               HEIGHT)
-        self.click_areas[RIGHT] = pygame.Rect(width_sides + width_center, 0,
-                                              width_sides, HEIGHT)
+        self.areas = self.get_areas()
+        self.click_areas[LEFT] = pygame.Rect(self.areas[LEFT])
+        self.click_areas[CENTER] = pygame.Rect(self.areas[CENTER])
+        self.click_areas[RIGHT] = pygame.Rect(self.areas[RIGHT])
+
+        #create menu areas (icons)
+        self.menu_areas = self.get_menu_areas()
+        self.menu_click_areas[DELETE] = pygame.Rect(self.menu_areas[DELETE][0])
+        self.menu_click_areas[SLIDESHOW] = \
+            pygame.Rect(self.menu_areas[SLIDESHOW][0])
+        self.menu_click_areas[EXIT] = pygame.Rect(self.menu_areas[EXIT][0])
+
+
+    def display_menu(self, force=False):
+        """
+        Display menu
+        """
+        #if self.visible_menu or not force:
+        #    logger.debug("Menu is already visible")
+        #    return
+
+        logger.debug("Displaying menu")
+        self.visible_menu = True
+
+        x, y, w, h = self.areas[CENTER]
+        menu_surface = pygame.Surface((w,h))
+        menu_surface.set_alpha(128)
+        menu_surface.fill('#ffffff')
+        logger.debug("Adding white layer with transparency on top of current "\
+                +"image")
+
+        self.__screen.blit(menu_surface, (x,y))
+
+        for _, menu_area in self.menu_areas.items():
+            img = pygame.image.load(menu_area[1])
+            self.__screen.blit(img, (menu_area[0][0],menu_area[0][1]))
+        '''
+        #remove image
+        #80x96
+        #remove.png
+
+        icon_x = x+(w/2)-40
+        icon_y = 10
+        path = os.path.dirname(os.path.abspath(__file__)) + \
+                '/../media/resources'
+        img_rmve = pygame.image.load(path + '/menu_remove.png')
+        self.__screen.blit(img_rmve, (icon_x, icon_y))
+
+        #start slideshow
+        #80x80
+        #slideshow.png
+        icon_y = (HEIGHT/2)-40
+        img_show = pygame.image.load(path + '/menu_slideshow.png')
+        self.__screen.blit(img_show, (icon_x, icon_y))
+
+        #leave menu
+        #80x80
+        #exit.png
+        icon_y = (HEIGHT)-90
+        img_exit = pygame.image.load(path + '/menu_exit.png')
+        self.__screen.blit(img_exit, (icon_x, icon_y))
+        '''
+        # update the display
+        pygame.display.flip()
+
 
     def get_clicked_area(self):
-        result = None
+        clicked_area = None
+        menu_clicked_area = None
+
         pos = pygame.mouse.get_pos()
         logger.debug("mouse pos: {}".format(pos))
         for k, area in self.click_areas.items():
             if area.collidepoint(pos):
-                result = k
+                clicked_area = k
                 break
-        return result
+
+        if clicked_area == CENTER and self.visible_menu:
+            for k, menu_area in self.menu_click_areas.items():
+                if menu_area.collidepoint(pos):
+                    menu_clicked_area = k
+                    break
+
+        return clicked_area, menu_clicked_area
 
     def onClick_left(self):
         '''
@@ -151,12 +230,62 @@ class piScreen():
         '''
         self.display_next_image()
 
-    def onClick_center(self):
+    def onClick_center(self, action):
         '''
         Display center
         '''
-        # TODO display menu
-        pass
+        if self.visible_menu:
+            #check clicked image
+            logger.info("Menu action clicked: {}".format(action))
+            if action == DELETE:
+                self.menu_action_delete()
+            elif action == SLIDESHOW:
+                self.menu_action_slideshow()
+            elif action == EXIT:
+                self.menu_action_exit()
+        else:
+            self.display_menu()
+
+    def menu_action_delete(self):
+        """
+        Deletes current image from directory
+        """
+        if len(self.images):
+            logger.info("Deleting image file {}"\
+                    .format(self.images[self.curr_id]))
+            os.remove(self.images[self.curr_id])
+
+            self.images.pop(self.curr_id)
+            if self.curr_id >= len(self.images):
+                self.curr_id = len(self.images)-1
+
+        self.menu_action_exit()
+
+    def menu_action_slideshow(self):
+        slideshow_interval_cfg = int(self.__settings['slideshow_interval'])
+
+        if self.slideshow_interval != slideshow_interval_cfg:
+            #slideshow value has been changed from the configured one
+            self.slideshow_interval = slideshow_interval_cfg
+        else:
+            if not slideshow_interval_cfg:
+                #slideshow interval disabled by config. Setting 30s slideshow
+                self.slideshow_interval = 30
+            else:
+                self.slideshow_interval = 0
+
+        logger.info("Slideshow interval set to: {}s"\
+                .format(self.slideshow_interval))
+        self.menu_action_exit()
+
+    def menu_action_exit(self):
+        '''
+        Perform menu action exit.
+        Sets menu visible to false and displays again current image
+        '''
+        logger.info("Exiting menu")
+        self.visible_menu = False
+        self.display_image()
 
     def get_image_rotation(self, img):
         rotation = 0
@@ -212,30 +341,68 @@ class piScreen():
             self.__screen.blit(img, (w_offset, 0))
             # update the display
             pygame.display.flip()
+        else:
+            # remove previous image from the screen
+            self.__surface.fill((0, 0, 0))
+            self.__screen.blit(self.__surface, (0, 0))
+            pygame.display.flip()
 
         self.last_displayed = datetime.datetime.now()
         self.last_slideshow = datetime.datetime.now()
+
+        if self.visible_menu:
+            self.display_menu(True)
+
+    def get_areas(self):
+        """
+        Get area tuples, (x, y, width, heigth)
+        """
+        w_lat = 2 * ceil(WIDTH/5)
+        w_ctr = WIDTH - (2 * w_lat)
+
+        areas = {LEFT: (0,0,w_lat,HEIGHT),
+                 CENTER: (w_lat,0,w_ctr,HEIGHT),
+                 RIGHT: (w_lat+w_ctr,0,w_lat,HEIGHT)}
+
+        return areas
+
+    def get_menu_areas(self):
+        x, _, w, _ = self.areas[CENTER]
+        menu_areas = { DELETE: [], SLIDESHOW: [], EXIT: []}
+
+        path = os.path.dirname(os.path.abspath(__file__)) + \
+                '/../media/resources'
+
+        #remove image
+        #80x96
+        img_rmve = path + '/menu_remove.png'
+        icon_x = x+(w/2)-40
+        icon_y = 10
+        menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+
+        #start slideshow
+        #80x80
+        img_show = path + '/menu_slideshow.png'
+        icon_y = (HEIGHT/2)-40
+        menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+
+        #leave menu
+        #80x80
+        img_exit = path + '/menu_exit.png'
+        icon_y = (HEIGHT)-90
+        menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
+
+        return menu_areas
 
     def display_areas(self):
         #FIXME currently not working. Lines are not erased
         width_sides = 2 * ceil(WIDTH/5)
         width_center = WIDTH - (2 * width_sides)
 
-        color = ( 255, 0, 0 )
-        pygame.draw.line(self.__screen, color, (width_sides, 0),
-                         (width_sides, HEIGHT))
-        pygame.draw.line(self.__screen, color, (width_sides+width_center, 0),
-                         (width_sides+width_center, HEIGHT))
-        pygame.display.update()
-
-        pygame.display.flip()
-        time.sleep(5)
-        self.display_image()
-
     def run(self):
         not_quit = True
         refresh_interval = int(self.__settings['refresh_interval'])
-        slideshow_interval = int(self.__settings['slideshow_interval'])
+        #slideshow_interval = int(self.__settings['slideshow_interval'])
         while not_quit:
             for event in pygame.event.get():
 
@@ -244,7 +411,7 @@ class piScreen():
                     #        and dash lines separating areas)
                     #self.display_areas()
 
-                    clicked_area = self.get_clicked_area()
+                    clicked_area, menu_clicked_area = self.get_clicked_area()
                     logger.info("MOUSEBUTTONDOWN detected on {} area"
                                  .format(clicked_area))
                     if clicked_area == LEFT:
@@ -252,7 +419,7 @@ class piScreen():
                     elif clicked_area == RIGHT:
                         self.onClick_right()
                     else:
-                        self.onClick_center()
+                        self.onClick_center(menu_clicked_area)
 
                 elif event.type == pygame.QUIT:
                     logger.info("Quitting")
@@ -267,9 +434,10 @@ class piScreen():
                     self.last_displayed).total_seconds()) > refresh_interval:
                     self.load_images()
 
-            if slideshow_interval != 0 and len(self.images):
+            if self.slideshow_interval != 0 and len(self.images):
                 if int((datetime.datetime.now() -
-                    self.last_slideshow).total_seconds()) > slideshow_interval:
+                    self.last_slideshow).total_seconds()) > \
+                            self.slideshow_interval:
                     logger.debug("Slideshow: Display next image")
                     self.display_next_image()
 

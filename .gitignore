@@ -3,3 +3,4 @@ log/*
 !media/images/.emtpy
 media/images/*
 piscreen/piscreen.cfg
+piscreen/*.swp

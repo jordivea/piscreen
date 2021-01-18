@@ -169,32 +169,7 @@ class piScreen():
         for _, menu_area in self.menu_areas.items():
             img = pygame.image.load(menu_area[1])
             self.__screen.blit(img, (menu_area[0][0],menu_area[0][1]))
-        '''
-        #remove image
-        #80x96
-        #remove.png
 
-        icon_x = x+(w/2)-40
-        icon_y = 10
-        path = os.path.dirname(os.path.abspath(__file__)) + \
-                '/../media/resources'
-        img_rmve = pygame.image.load(path + '/menu_remove.png')
-        self.__screen.blit(img_rmve, (icon_x, icon_y))
-
-        #start slideshow
-        #80x80
-        #slideshow.png
-        icon_y = (HEIGHT/2)-40
-        img_show = pygame.image.load(path + '/menu_slideshow.png')
-        self.__screen.blit(img_show, (icon_x, icon_y))
-
-        #leave menu
-        #80x80
-        #exit.png
-        icon_y = (HEIGHT)-90
-        img_exit = pygame.image.load(path + '/menu_exit.png')
-        self.__screen.blit(img_exit, (icon_x, icon_y))
-        '''
         # update the display
         pygame.display.flip()
 

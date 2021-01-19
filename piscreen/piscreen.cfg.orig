@@ -14,6 +14,9 @@ txt_img_background_color = #ffffff
 txt_img_font_color = #000000
 txt_font = /usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf
 
+#Orientation. 1 = landscape, 3 = landscape upside down
+orientation = 3
+
 [display]
 WIDTH = 480
 HEIGHT = 320

@@ -126,8 +126,11 @@ class MailParser():
 
         logger.info("New image {} created with text '{}'".format(filepath,
                                                                  txt))
-        #Rotate image to default position (upside down, landscape)
-        img = img.rotate(180, expand=True)
+        #Rotate image according to configured orientation
+        #orientation ==1: landscape
+        #orientation ==3: landscape upside down
+        if int(config['config']['orientation']) == 3:
+            img = img.rotate(180, expand=True)
         img.save(filepath)
         img.close()
 

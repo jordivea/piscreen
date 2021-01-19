@@ -267,9 +267,12 @@ class piScreen():
         if hasattr(img, '_getexif'):
             exifdata = img._getexif()
             if exifdata:
-                #default orientation ==3, raspberry pi is upside down, landscape
-                if exifdata[EXIFTAG_ORIENTATION] == 1:
-                    rotation = 180
+                #orientation ==1: landscape
+                #orientation ==3: landscape upside down
+                if exifdata[EXIFTAG_ORIENTATION] in (1, 3):
+                    if int(self.__settings['orientation']) != \
+                            exifdata[EXIFTAG_ORIENTATION]:
+                        rotation = 180
                 elif exifdata[EXIFTAG_ORIENTATION] == 6:
                     rotation = 90
                 elif exifdata[EXIFTAG_ORIENTATION] == 8:
@@ -335,10 +338,16 @@ class piScreen():
         w_lat = 2 * ceil(WIDTH/5)
         w_ctr = WIDTH - (2 * w_lat)
 
-        areas = {LEFT: (0,0,w_lat,HEIGHT),
-                 CENTER: (w_lat,0,w_ctr,HEIGHT),
-                 RIGHT: (w_lat+w_ctr,0,w_lat,HEIGHT)}
-
+        if int(self.__settings['orientation']) == 1:
+            logger.debug("Orientation: landscape (1)")
+            areas = {LEFT: (0,0,w_lat,HEIGHT),
+                     CENTER: (w_lat,0,w_ctr,HEIGHT),
+                     RIGHT: (w_lat+w_ctr,0,w_lat,HEIGHT)}
+        else: #orientation == 3, landscape, upside down
+            logger.debug("Orientation: landscape upside down (3)")
+            areas = {RIGHT: (0,0,w_lat,HEIGHT),
+                     CENTER: (w_lat,0,w_ctr,HEIGHT),
+                     LEFT: (w_lat+w_ctr,0,w_lat,HEIGHT)}
         return areas
 
     def get_menu_areas(self):
@@ -348,24 +357,41 @@ class piScreen():
         path = os.path.dirname(os.path.abspath(__file__)) + \
                 '/../media/resources'
 
-        #remove image
-        #80x96
-        img_rmve = path + '/menu_remove.png'
-        icon_x = x+(w/2)-40
-        icon_y = 10
-        menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+        if int(self.__settings['orientation']) == 1:
+            orientation = 1
+        else:
+            orientation = 3
 
-        #start slideshow
-        #80x80
-        img_show = path + '/menu_slideshow.png'
-        icon_y = (HEIGHT/2)-40
-        menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+        img_rmve = "{}/menu_remove{}.png".format(path,orientation)    #80x96
+        img_show = "{}/menu_slideshow{}.png".format(path,orientation) #80x80
+        img_exit = "{}/menu_exit{}.png".format(path,orientation)      #80x80
 
-        #leave menu
-        #80x80
-        img_exit = path + '/menu_exit.png'
-        icon_y = (HEIGHT)-90
-        menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
+        if int(self.__settings['orientation']) == 1:
+            #remove image
+            icon_x = x+(w/2)-40
+            icon_y = 10
+            menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+
+            #start slideshow
+            icon_y = (HEIGHT/2)-32
+            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+
+            #leave menu
+            icon_y = HEIGHT-90
+            menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
+        else: #orientation == 3, landscape upside down
+            #remove image
+            icon_x = x+(w/2)-40
+            icon_y = HEIGHT-106
+            menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+
+            #start slideshow
+            icon_y = (HEIGHT/2)-48
+            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+
+            #leave menu
+            icon_y = 10
+            menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
 
         return menu_areas
 

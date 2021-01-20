@@ -160,7 +160,7 @@ class piScreen():
         x, y, w, h = self.areas[CENTER]
         menu_surface = pygame.Surface((w,h))
         menu_surface.set_alpha(128)
-        menu_surface.fill('#ffffff')
+        menu_surface.fill((255,255,255))
         logger.debug("Adding white layer with transparency on top of current "\
                 +"image")
 

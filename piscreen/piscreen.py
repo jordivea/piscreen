@@ -146,7 +146,7 @@ class piScreen():
         self.menu_click_areas[EXIT] = pygame.Rect(self.menu_areas[EXIT][0])
 
 
-    def display_menu(self, force=False):
+    def display_menu(self, force=False, highlight=None):
         """
         Display menu
         """
@@ -166,13 +166,17 @@ class piScreen():
 
         self.__screen.blit(menu_surface, (x,y))
 
-        for _, menu_area in self.menu_areas.items():
-            img = pygame.image.load(menu_area[1])
+        for action, menu_area in self.menu_areas.items():
+            #if highlight is the given icon, change icon black to green
+            if highlight == action:
+                icon_path = menu_area[1][:-4]+"H"+menu_area[1][-4:]
+            else:
+                icon_path = menu_area[1]
+            img = pygame.image.load(icon_path)
             self.__screen.blit(img, (menu_area[0][0],menu_area[0][1]))
 
         # update the display
         pygame.display.flip()
-
 
     def get_clicked_area(self):
         clicked_area = None
@@ -233,8 +237,7 @@ class piScreen():
             self.images.pop(self.curr_id)
             if self.curr_id >= len(self.images):
                 self.curr_id = len(self.images)-1
-
-        self.menu_action_exit()
+        self.menu_hide(DELETE)
 
     def menu_action_slideshow(self):
         slideshow_interval_cfg = int(self.__settings['slideshow_interval'])
@@ -251,7 +254,7 @@ class piScreen():
 
         logger.info("Slideshow interval set to: {}s"\
                 .format(self.slideshow_interval))
-        self.menu_action_exit()
+        self.menu_hide(SLIDESHOW)
 
     def menu_action_exit(self):
         '''
@@ -259,6 +262,11 @@ class piScreen():
         Sets menu visible to false and displays again current image
         '''
         logger.info("Exiting menu")
+        self.menu_hide(EXIT)
+
+    def menu_hide(self, action):
+        self.display_menu(highlight=action)
+        time.sleep(2)
         self.visible_menu = False
         self.display_image()
 
@@ -335,7 +343,7 @@ class piScreen():
         """
         Get area tuples, (x, y, width, heigth)
         """
-        w_lat = 2 * ceil(WIDTH/5)
+        w_lat = ceil(WIDTH/3)
         w_ctr = WIDTH - (2 * w_lat)
 
         if int(self.__settings['orientation']) == 1:
@@ -370,35 +378,30 @@ class piScreen():
             #remove image
             icon_x = x+(w/2)-40
             icon_y = 10
-            menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+            menu_areas[DELETE] = [(icon_x, icon_y, 160, 96), img_rmve]
 
             #start slideshow
             icon_y = (HEIGHT/2)-32
-            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 160, 80), img_show]
 
             #leave menu
             icon_y = HEIGHT-90
-            menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
+            menu_areas[EXIT] = [(icon_x, icon_y, 160, 80), img_exit]
         else: #orientation == 3, landscape upside down
             #remove image
             icon_x = x+(w/2)-40
             icon_y = HEIGHT-106
-            menu_areas[DELETE] = [(icon_x, icon_y, 80, 96), img_rmve]
+            menu_areas[DELETE] = [(icon_x, icon_y, 160, 96), img_rmve]
 
             #start slideshow
             icon_y = (HEIGHT/2)-48
-            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 80, 80), img_show]
+            menu_areas[SLIDESHOW] = [(icon_x, icon_y, 160, 80), img_show]
 
             #leave menu
             icon_y = 10
-            menu_areas[EXIT] = [(icon_x, icon_y, 80, 80), img_exit]
+            menu_areas[EXIT] = [(icon_x, icon_y, 160, 80), img_exit]
 
         return menu_areas
-
-    def display_areas(self):
-        #FIXME currently not working. Lines are not erased
-        width_sides = 2 * ceil(WIDTH/5)
-        width_center = WIDTH - (2 * width_sides)
 
     def run(self):
         not_quit = True
